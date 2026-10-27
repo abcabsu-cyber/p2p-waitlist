@@ -236,6 +236,7 @@ h1 em{font-style:normal;background:linear-gradient(100deg,#fff6e1,var(--champagn
 .dialog .ends{color:#6c6663}
 .dialog .check{color:#4d4744}
 .dialog .demo{color:#8a8480}
+.send-err{margin-top:-8px;font-size:13.5px;text-align:center;color:var(--destructive)}
 .dialog .field.bad .select.cc{border-color:var(--border);box-shadow:0 1px 2px rgba(20,16,14,.06)}
 
 /* ---------- планшет и телефон: колонка на один экран ---------- */
@@ -356,6 +357,7 @@ h1 em{font-style:normal;background:linear-gradient(100deg,#fff6e1,var(--champagn
 
       <div class="field" id="agreeF"><label class="check" for="agree"><input type="checkbox" id="agree"><span>Согласен(на) на обработку персональных данных</span></label><div class="err">Нужно согласие</div></div>
       <button class="submit" type="submit" id="send">Отправить данные</button>
+      <p class="send-err" id="sendErr" hidden>Не удалось отправить. Проверьте интернет и нажмите ещё раз.</p>
       <p class="demo" id="demo" hidden>Демо-режим: данные никуда не отправляются.</p>
     </form>
     <div class="done" id="done">
@@ -367,14 +369,27 @@ h1 em{font-style:normal;background:linear-gradient(100deg,#fff6e1,var(--champagn
 </div>
 
 <script>
-// Адрес веб-приложения Google Apps Script (doPost: строка в таблицу + webhook в BotHelp)
+// Адрес веб-приложения Google Apps Script (см. apps-script/README.md). Пусто = демо-режим.
 const SCRIPT_URL = "";
 
 const ov = document.getElementById('ov'), form = document.getElementById('form'), done = document.getElementById('done');
+
+// Метки из ссылки бота: ?tg_id=...&video=...&utm_*. Запоминаем их, чтобы связка
+// с ботом не потерялась, если человек перезагрузит страницу или откроет её без параметров.
 const q = new URLSearchParams(location.search);
-form.tg_id.value = q.get('tg_id') || '';
-form.video.value = q.get('video') || '';
-form.utm.value = ['utm_source','utm_medium','utm_campaign','utm_content'].map(k => q.get(k) ? k+'='+q.get(k) : '').filter(Boolean).join('&');
+const fromUrl = {
+  tg_id: q.get('tg_id') || '',
+  video: q.get('video') || '',
+  utm: ['utm_source','utm_medium','utm_campaign','utm_content'].map(k => q.get(k) ? k+'='+q.get(k) : '').filter(Boolean).join('&')
+};
+let ref = fromUrl;
+try {
+  if (fromUrl.tg_id) localStorage.setItem('p2p_ref', JSON.stringify(fromUrl));
+  else ref = JSON.parse(localStorage.getItem('p2p_ref') || 'null') || fromUrl;
+} catch(_) {}
+form.tg_id.value = ref.tg_id || '';
+form.video.value = ref.video || '';
+form.utm.value = ref.utm || '';
 if (!SCRIPT_URL) document.getElementById('demo').hidden = false;
 
 function openM(){ ov.scrollTop = 0; ov.classList.add('open'); ov.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden'; }
@@ -396,13 +411,23 @@ form.addEventListener('submit', async e => {
   ok = mark(form.experience[0], !!form.experience.value) && ok;
   const ag = document.getElementById('agree'); ok = mark(ag, ag.checked) && ok;
   if (!ok) { const bad = form.querySelector('.field.bad'); if (bad) bad.scrollIntoView({block:'center',behavior:'smooth'}); return; }
-  const btn = document.getElementById('send'); btn.disabled = true; btn.textContent = 'Отправляем…';
+  const btn = document.getElementById('send'), sendErr = document.getElementById('sendErr');
+  btn.disabled = true; btn.textContent = 'Отправляем…'; sendErr.hidden = true;
   if (SCRIPT_URL) {
     const fd = new FormData(form);
     fd.set('whatsapp', fd.get('whatsapp_cc') + ' ' + fd.get('whatsapp'));
     const c = String(fd.get('call') || '').trim(); fd.set('call', /\d/.test(c) ? fd.get('call_cc') + ' ' + c : c);
     fd.delete('whatsapp_cc'); fd.delete('call_cc');
-    try { await fetch(SCRIPT_URL, {method:'POST', mode:'no-cors', body:new URLSearchParams(fd)}); } catch(_) {}
+    // no-cors: ответ скрипта не читается, но обрыв сети ловим — анкета не должна теряться молча.
+    const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 20000);
+    try {
+      await fetch(SCRIPT_URL, {method:'POST', mode:'no-cors', body:new URLSearchParams(fd), signal:ctrl.signal});
+    } catch(_) {
+      clearTimeout(timer);
+      btn.disabled = false; btn.textContent = 'Отправить данные'; sendErr.hidden = false;
+      return;
+    }
+    clearTimeout(timer);
   }
   form.style.display = 'none'; done.style.display = 'grid';
 });
