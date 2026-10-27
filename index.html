@@ -186,6 +186,8 @@ h1 em{font-style:normal;background:linear-gradient(100deg,#fff6e1,var(--champagn
 .check{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--muted-foreground)}
 .check input{margin-top:2px}
 .err{display:none;color:var(--destructive);font-size:13px}
+.latin-warn{display:none;color:#b7791f;font-size:13px}
+.latin-warn.show{display:block}
 .field.bad .err{display:block}
 .field.bad .input,.field.bad .select{border-color:var(--destructive);box-shadow:0 0 0 3px rgba(255,138,120,.2)}
 .submit,.done a{height:48px;border:0;border-radius:8px;font:800 14px var(--font-body);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;color:var(--ink);
@@ -367,10 +369,10 @@ h1 em{font-style:normal;background:linear-gradient(100deg,#fff6e1,var(--champagn
         </div><div class="err">Выберите вариант</div></div>
 
       <div class="field"><label for="ig">Ник инстаграма</label>
-        <input class="input" id="ig" name="instagram" type="text" placeholder="Пример: ahmad_p2p"></div>
+        <input class="input" id="ig" name="instagram" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" lang="en" inputmode="email" placeholder="Пример: ahmad_p2p"><div class="latin-warn">Только английские буквы, цифры и _</div></div>
 
       <div class="field"><label for="tg">Ник Telegram <i>*</i></label>
-        <input class="input" id="tg" name="telegram" type="text" placeholder="Пример: @ahmad_p2p"><div class="err">Укажите ник в Telegram</div></div>
+        <input class="input" id="tg" name="telegram" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" lang="en" inputmode="email" placeholder="Пример: @ahmad_p2p"><div class="latin-warn">Только английские буквы, цифры и _</div><div class="err">Укажите ник в Telegram</div></div>
 
       <div class="field"><label for="wa">Номер WhatsApp <i>*</i></label>
         <p class="hint">Пример: 89281488228</p>
@@ -460,6 +462,22 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeM(); })
 const rd = document.getElementById('rd'), rdo = document.getElementById('rdo');
 function syncRd(){ rdo.textContent = rd.value; rdo.style.setProperty('--p', rd.value/10); rd.style.setProperty('--p', rd.value/10); }
 rd.addEventListener('input', syncRd); syncRd();
+
+// Ники Instagram и Telegram — только латиница, цифры, _ (и . для Instagram, @ в начале для Telegram)
+function latinOnly(el, bad){
+  const warn = el.parentNode.querySelector('.latin-warn'); let tm;
+  el.addEventListener('input', () => {
+    let v = el.value, c = v.replace(bad, '');
+    if (el.name === 'telegram') c = c.replace(/(?!^)@/g, '');
+    if (c !== v) {
+      const pos = Math.max(0, (el.selectionStart || c.length) - (v.length - c.length));
+      el.value = c; try { el.setSelectionRange(pos, pos); } catch(_) {}
+      warn.classList.add('show'); clearTimeout(tm); tm = setTimeout(() => warn.classList.remove('show'), 2500);
+    }
+  });
+}
+latinOnly(form.instagram, /[^A-Za-z0-9_.]/g);
+latinOnly(form.telegram, /[^A-Za-z0-9_@]/g);
 
 function mark(el, ok){ el.closest('.field').classList.toggle('bad', !ok); return ok; }
 form.addEventListener('submit', async e => {
