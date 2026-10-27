@@ -446,8 +446,12 @@ const fromUrl = {
 };
 let ref = fromUrl;
 try {
-  if (fromUrl.tg_id) localStorage.setItem('p2p_ref', JSON.stringify(fromUrl));
-  else ref = JSON.parse(localStorage.getItem('p2p_ref') || 'null') || fromUrl;
+  const saved = JSON.parse(localStorage.getItem('p2p_ref') || 'null');
+  if (fromUrl.tg_id) {
+    // Ссылка из общего дожима идёт без video: оставляем материал, по которому человек пришёл впервые
+    if (!fromUrl.video && saved && saved.tg_id === fromUrl.tg_id && saved.video) fromUrl.video = saved.video;
+    localStorage.setItem('p2p_ref', JSON.stringify(fromUrl));
+  } else if (saved) ref = saved;
 } catch(_) {}
 form.tg_id.value = ref.tg_id || '';
 form.video.value = ref.video || '';
