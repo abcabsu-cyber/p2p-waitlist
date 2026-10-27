@@ -237,6 +237,33 @@ h1 em{font-style:normal;background:linear-gradient(100deg,#fff6e1,var(--champagn
 .dialog .check{color:#4d4744}
 .dialog .demo{color:#8a8480}
 .send-err{margin-top:-8px;font-size:13.5px;text-align:center;color:var(--destructive)}
+
+/* ---------- экран после анкеты ---------- */
+.page.thanks{min-height:100svh;grid-template-rows:minmax(0,1fr);row-gap:0}
+.thanks .cta{text-decoration:none}
+.thanks .sub{font-size:clamp(13px,1vw,15px)}
+.countdown{font-size:clamp(13px,1vw,14.5px);color:#c4b2b0;margin-top:calc(-1 * clamp(8px,2vh,24px))}
+.countdown b{color:var(--mint);font-weight:800;display:inline-block;min-width:1ch;text-align:center}
+.tgcard{position:absolute;z-index:2;right:0;bottom:14%;width:min(54%,260px);padding:18px 14px 16px;border-radius:20px;
+  display:grid;justify-items:center;gap:3px;text-align:center;background:#fff;color:#15110f;
+  box-shadow:0 26px 70px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.6) inset}
+.tgcard::before{content:"";position:absolute;left:50%;top:-8px;width:16px;height:16px;background:#fff;border-radius:3px;transform:translateX(-50%) rotate(45deg)}
+.tgava{width:64px;height:64px;border-radius:50%;margin-bottom:8px;border:2px solid #0fae85;
+  background:var(--person) 50% 3%/240% auto no-repeat,#2a1a20}
+.tgcard b{font-family:var(--font-display);font-size:14px;line-height:1.2}
+.tgsub{font-size:11px;color:#8a8480}
+.tgcard p{margin-top:6px;font-size:12px;line-height:1.35;color:#3d3734}
+@media(prefers-reduced-motion:no-preference){
+  .tgcard{animation:rise .9s .3s cubic-bezier(.2,.7,.2,1) both,bob 6s 1.2s ease-in-out infinite}
+  @keyframes bob{0%,100%{translate:0 0}50%{translate:0 -8px}}
+}
+@media(max-width:900px){
+  .page.thanks{grid-template-rows:auto minmax(0,1fr)}
+  .thanks .stage{min-height:min(118vw,520px)}
+  .thanks .tgcard{right:0;bottom:8%;width:min(52%,230px);padding:14px 12px 13px}
+  .thanks .tgava{width:52px;height:52px}
+  .countdown{justify-self:center;margin-top:-6px}
+}
 .dialog .field.bad .select.cc{border-color:var(--border);box-shadow:0 1px 2px rgba(20,16,14,.06)}
 
 /* ---------- планшет и телефон: колонка на один экран ---------- */
@@ -360,10 +387,33 @@ h1 em{font-style:normal;background:linear-gradient(100deg,#fff6e1,var(--champagn
       <p class="send-err" id="sendErr" hidden>Не удалось отправить. Проверьте интернет и нажмите ещё раз.</p>
       <p class="demo" id="demo" hidden>Демо-режим: данные никуда не отправляются.</p>
     </form>
-    <div class="done" id="done">
-      <h2 style="padding:0">Анкета получена</h2>
-      <p>Спасибо! Мы свяжемся с вами.</p>
-      <a href="https://t.me/ibnyusupow_p2p" target="_blank" rel="noopener">Перейти в канал</a>
+  </div>
+</div>
+
+<!-- Экран после отправки анкеты: 5 секунд, затем автоматический переход в Telegram-канал -->
+<div class="page thanks" id="thanks" hidden>
+  <div class="lattice" aria-hidden="true"></div>
+
+  <div class="copy">
+    <p class="chip"><span><b>Анкета принята</b> · ты в предзаписи</span></p>
+    <h1>Стой! <em>Забери бонус</em> предзаписи!</h1>
+    <p class="sub">Переходи в Telegram-канал <strong>«Вселенная P2P»</strong>: там <span class="hl">реалити по P2P</span> и все новости о старте курса</p>
+    <a class="cta" id="tgGo" href="https://t.me/ibnyusupow_p2p"><span>Перейти в канал</span>
+      <span class="arr" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+    </a>
+    <p class="countdown" id="cdWrap" aria-live="polite">Перекинем в канал через <b id="cd">5</b> сек</p>
+  </div>
+
+  <div class="stage" aria-hidden="true">
+    <div class="glow"></div>
+    <i class="ring r1"></i><i class="ring r2"></i>
+    <div class="coin c1"></div><div class="coin c2"></div><div class="coin c3"></div>
+    <div class="wrap"><div class="person-blur"></div><div class="person"></div></div>
+    <div class="tgcard">
+      <div class="tgava"></div>
+      <b>Вселенная P2P</b>
+      <span class="tgsub">Telegram-канал Ибрахима Юсупова</span>
+      <p>Реалити: вывожу двух человек на доход с P2P за 10 дней</p>
     </div>
   </div>
 </div>
@@ -372,7 +422,7 @@ h1 em{font-style:normal;background:linear-gradient(100deg,#fff6e1,var(--champagn
 // Адрес веб-приложения Google Apps Script (см. apps-script/README.md). Пусто = демо-режим.
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwVfHSPLOgIhiS_dxLR06Y1OnGk93wBf3ACOnL3yRGEsEYv5WV6d8SjC7ImVFUw6b902w/exec";
 
-const ov = document.getElementById('ov'), form = document.getElementById('form'), done = document.getElementById('done');
+const ov = document.getElementById('ov'), form = document.getElementById('form');
 
 // Метки из ссылки бота: ?tg_id=...&video=...&utm_*. Запоминаем их, чтобы связка
 // с ботом не потерялась, если человек перезагрузит страницу или откроет её без параметров.
@@ -429,6 +479,41 @@ form.addEventListener('submit', async e => {
     }
     clearTimeout(timer);
   }
-  form.style.display = 'none'; done.style.display = 'grid';
+  showThanks();
 });
+
+// ---------- экран после анкеты и переход в канал ----------
+const TG_CHANNEL = 'ibnyusupow_p2p';
+const REDIRECT_SEC = 5;
+
+// Открываем канал сразу в приложении Telegram (tg://), без веб-страницы t.me с кнопкой.
+// Если приложение не открылось (нет Telegram, отказ в диалоге) — запасной вариант https://t.me.
+const PREVIEW = q.get('preview') === 'thanks';
+function goTg(){
+  if (PREVIEW) return;
+  let left = false;
+  const mark = () => { left = true; };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) mark(); });
+  window.addEventListener('pagehide', mark);
+  window.addEventListener('blur', mark);
+  location.href = 'tg://resolve?domain=' + TG_CHANNEL;
+  setTimeout(() => { if (!left && !document.hidden) location.href = 'https://t.me/' + TG_CHANNEL; }, 2500);
+}
+
+let thanksShown = false;
+function showThanks(){
+  if (thanksShown) return; thanksShown = true;
+  closeM();
+  document.querySelector('.page:not(.thanks)').hidden = true;
+  const th = document.getElementById('thanks'); th.hidden = false; window.scrollTo(0, 0);
+  const cd = document.getElementById('cd'); let n = REDIRECT_SEC; cd.textContent = n;
+  const t = setInterval(() => {
+    n--; cd.textContent = Math.max(n, 0);
+    if (n <= 0) { clearInterval(t); document.getElementById('cdWrap').textContent = 'Открываем Telegram…'; goTg(); }
+  }, 1000);
+  document.getElementById('tgGo').addEventListener('click', e => { e.preventDefault(); clearInterval(t); goTg(); });
+}
+
+// Просмотр экрана без отправки анкеты: ?preview=thanks (переход в канал при этом не срабатывает)
+if (PREVIEW) showThanks();
 </script>
