@@ -352,7 +352,7 @@ h1 em{font-style:normal;background:linear-gradient(100deg,#fff6e1,var(--champagn
     <button class="close" type="button" data-close aria-label="Закрыть">&times;</button>
     <form id="form" novalidate style="display:grid;gap:22px">
       <h2 id="dt">Оставить анкету</h2>
-      <input type="hidden" name="tg_id"><input type="hidden" name="video"><input type="hidden" name="utm">
+      <input type="hidden" name="tg_id"><input type="hidden" name="video"><input type="hidden" name="utm"><input type="hidden" name="cuid">
 
       <div class="field"><label for="nac">Имя, возраст, город <i>*</i></label>
         <input class="input" id="nac" name="name_age_city" type="text" placeholder="Пример: Ахмад, 25, Махачкала" autocomplete="off"><div class="err">Заполните это поле</div></div>
@@ -434,12 +434,14 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwVfHSPLOgIhiS_dxLR0
 
 const ov = document.getElementById('ov'), form = document.getElementById('form');
 
-// Метки из ссылки бота: ?tg_id=...&video=...&utm_*. Запоминаем их, чтобы связка
+// Метки из ссылки бота: ?tg_id={%user_id%}&cuid={%cuid%}&video=...&utm_*. Запоминаем их, чтобы связка
 // с ботом не потерялась, если человек перезагрузит страницу или откроет её без параметров.
 const q = new URLSearchParams(location.search);
+const param = k => { const v = (q.get(k) || '').trim(); return v.includes('{%') ? '' : v; }; // неподставленный макрос — игнор
 const fromUrl = {
-  tg_id: q.get('tg_id') || '',
-  video: q.get('video') || '',
+  tg_id: param('tg_id'),
+  cuid: param('cuid'),
+  video: param('video'),
   utm: ['utm_source','utm_medium','utm_campaign','utm_content'].map(k => q.get(k) ? k+'='+q.get(k) : '').filter(Boolean).join('&')
 };
 let ref = fromUrl;
@@ -450,7 +452,14 @@ try {
 form.tg_id.value = ref.tg_id || '';
 form.video.value = ref.video || '';
 form.utm.value = ref.utm || '';
+form.cuid.value = ref.cuid || '';
 if (!SCRIPT_URL) document.getElementById('demo').hidden = false;
+
+// Отмечаем переход из бота на сайт: бот увидит статус «visited» (открыл, но не заполнил)
+if (SCRIPT_URL && fromUrl.tg_id && q.get('preview') !== 'thanks') {
+  const v = new URLSearchParams({event:'visit', tg_id:fromUrl.tg_id, cuid:fromUrl.cuid, video:fromUrl.video, utm:fromUrl.utm});
+  fetch(SCRIPT_URL, {method:'POST', mode:'no-cors', body:v, keepalive:true}).catch(() => {});
+}
 
 function openM(){ ov.scrollTop = 0; ov.classList.add('open'); ov.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden'; }
 function closeM(){ ov.classList.remove('open'); ov.setAttribute('aria-hidden','true'); document.body.style.overflow=''; }

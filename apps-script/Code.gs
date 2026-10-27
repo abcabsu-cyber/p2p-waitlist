@@ -1,21 +1,26 @@
 /**
- * Приём анкет с сайта предзаписи → Google Таблица (+ связь с ботом).
+ * Анкеты предзаписи → Google Таблица + связь с ботом BotHelp.
  *
- * doPost  — сайт присылает анкету, скрипт пишет строку в лист «Заявки»
- *           и (если задан BOT_WEBHOOK_URL) сообщает боту, что человек заполнил анкету.
- * doGet   — бот спрашивает ?tg_id=123 и получает {"ok":true,"filled":true|false}.
- *           Перед каждым дожимающим сообщением бот проверяет: заполнил — не шлём.
+ * doPost  — сайт присылает:
+ *           • анкету → строка в лист «Заявки»;
+ *           • event=visit (человек открыл сайт по ссылке из бота) → строка в лист «Визиты».
+ * doGet   — бот спрашивает статус человека: ?tg_id=123
+ *           Ответ: {"ok":true,"tg_id":"123","status":"filled"|"visited"|"none","filled":true|false}
+ *             filled  — анкета заполнена
+ *             visited — открыл сайт, но анкету не отправил
+ *             none    — на сайт не переходил
+ *           В BotHelp это делается действием «Внешний запрос» перед каждым дожимом.
  *
- * Установка — см. apps-script/README.md
+ * Установка и настройка бота — см. apps-script/README.md
  */
 
 const SHEET_NAME = 'Заявки';
+const VISITS_SHEET = 'Визиты';
 
-// Необязательно: адрес, куда скрипт сообщит боту о новой анкете (POST, JSON).
-// Оставьте пустым, если бот сам проверяет статус через doGet.
+// Необязательно: адрес, куда скрипт сообщит о новой анкете (POST, JSON).
 const BOT_WEBHOOK_URL = '';
 
-// Порядок колонок в таблице: [заголовок, имя поля в форме]
+// Порядок колонок в «Заявках»: [заголовок, имя поля в форме]. Новые колонки — только в конец.
 const COLUMNS = [
   ['Дата',                   '_date'],
   ['tg_id',                  'tg_id'],
@@ -30,56 +35,69 @@ const COLUMNS = [
   ['Номер для звонков',      'call'],
   ['Идеальный результат',    'goal'],
   ['Готовность (0–10)',      'readiness'],
+  ['cuid (BotHelp)',         'cuid'],
 ];
-const TG_ID_COL = 2; // колонка B
+const VISIT_COLUMNS = [
+  ['Дата',          '_date'],
+  ['tg_id',         'tg_id'],
+  ['Видео',         'video'],
+  ['cuid (BotHelp)','cuid'],
+  ['UTM',           'utm'],
+];
+const TG_ID_COL = 2; // колонка B в обоих листах
 
 function doPost(e) {
   const p = (e && e.parameter) || {};
+  const isVisit = p.event === 'visit';
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
-    const sheet = getSheet_();
-    const row = COLUMNS.map(([, key]) => key === '_date' ? new Date() : asText_(p[key]));
-    sheet.appendRow(row);
+    const cols = isVisit ? VISIT_COLUMNS : COLUMNS;
+    const sheet = getSheet_(isVisit ? VISITS_SHEET : SHEET_NAME, cols);
+    sheet.appendRow(cols.map(([, key]) => key === '_date' ? new Date() : asText_(p[key])));
   } finally {
     lock.releaseLock();
   }
-  notifyBot_(p);
+  if (!isVisit) notifyBot_(p);
   return json_({ ok: true });
 }
 
 function doGet(e) {
   const tgId = String((e && e.parameter && e.parameter.tg_id) || '').trim();
   if (!tgId) return json_({ ok: true, service: 'p2p-waitlist' });
-  return json_({ ok: true, tg_id: tgId, filled: hasTgId_(tgId) });
+  const filled = hasTgId_(SHEET_NAME, COLUMNS, tgId);
+  const visited = filled || hasTgId_(VISITS_SHEET, VISIT_COLUMNS, tgId);
+  const status = filled ? 'filled' : visited ? 'visited' : 'none';
+  return json_({ ok: true, tg_id: tgId, status: status, filled: filled });
 }
 
-/** Запустите один раз вручную: создаст лист и шапку. */
+/** Запустите вручную после обновления кода: создаст листы и обновит шапки. */
 function setup() {
-  getSheet_();
+  getSheet_(SHEET_NAME, COLUMNS);
+  getSheet_(VISITS_SHEET, VISIT_COLUMNS);
 }
 
 // ---------- служебное ----------
 
-function getSheet_() {
+function getSheet_(name, cols) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(SHEET_NAME);
-  if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(COLUMNS.map(([title]) => title));
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) sheet = ss.insertSheet(name);
+  const titles = cols.map(([title]) => title);
+  const head = sheet.getRange(1, 1, 1, titles.length);
+  if (head.getValues()[0].join('\u0001') !== titles.join('\u0001')) {
+    head.setValues([titles]).setFontWeight('bold');
     sheet.setFrozenRows(1);
-    sheet.getRange(1, 1, 1, COLUMNS.length).setFontWeight('bold');
   }
   return sheet;
 }
 
-function hasTgId_(tgId) {
-  const sheet = getSheet_();
+function hasTgId_(name, cols, tgId) {
+  const sheet = getSheet_(name, cols);
   const last = sheet.getLastRow();
   if (last < 2) return false;
-  const found = sheet.getRange(2, TG_ID_COL, last - 1, 1)
+  return !!sheet.getRange(2, TG_ID_COL, last - 1, 1)
     .createTextFinder(tgId).matchEntireCell(true).findNext();
-  return !!found;
 }
 
 // Текст в ячейку как есть: «+7 928…» иначе таблица примет за формулу,
@@ -99,6 +117,7 @@ function notifyBot_(p) {
       payload: JSON.stringify({
         event: 'form_submitted',
         tg_id: p.tg_id || '',
+        cuid: p.cuid || '',
         video: p.video || '',
         telegram: p.telegram || '',
         name: p.name_age_city || '',
