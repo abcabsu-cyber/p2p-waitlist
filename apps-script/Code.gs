@@ -35,7 +35,8 @@ const BOTHELP_DEFAULT_FLOW = BOTHELP_FLOWS.chalenge;
 
 // ---------- Лимиты (защита от ботов и перебора) ----------
 const LIMITS = {
-  formsPerMinute: 30,     // анкет со всего сайта в минуту
+  formsPerMinute: 30,     // анкет в минуту БЕЗ подтверждённого визита (подозрительные)
+  pairedFormsPerMinute: 120, // анкет в минуту от людей, пришедших по своей ссылке из бота
   visitsPerMinute: 150,   // визитов со всего сайта в минуту
   formsPerTgId10m: 3,     // анкет от одного tg_id за 10 минут
   botRunsPer10m: 30,      // запусков бота за 10 минут; выше — «предохранитель»
@@ -135,13 +136,17 @@ function handleForm_(raw) {
   }
   const p = clean_(raw);
   if (!p.name_age_city || !p.telegram || !p.whatsapp) return json_({ ok: false, error: 'required' });
-  const cache = CacheService.getScriptCache();
-  if (p.sid && cache.get('sid:' + p.sid)) return json_({ ok: true, dup: true }); // повторная отправка той же анкеты
-  if (!rate_('forms', LIMITS.formsPerMinute, 60)) return json_({ ok: false, error: 'rate' });
+  // Настоящие люди (визит этой пары tg_id+cuid уже есть) идут по отдельному лимиту —
+  // поток поддельных анкет не может «выбить» реальных людей.
+  const paired = !!(p.tg_id && p.cuid && pairVisited_(p.tg_id, p.cuid));
+  if (!rate_(paired ? 'forms_paired' : 'forms', paired ? LIMITS.pairedFormsPerMinute : LIMITS.formsPerMinute, 60)) return json_({ ok: false, error: 'rate' });
   if (p.tg_id && !rate_('form:' + p.tg_id, LIMITS.formsPerTgId10m, 600)) return json_({ ok: false, error: 'rate' });
+  // Повторная отправка той же анкеты (двойной клик, повтор после таймаута). Проверка под замком — без гонки.
+  if (p.sid && !claim_('sid:' + p.sid, 21600)) return json_({ ok: true, dup: true });
 
-  const where = appendSafe_(SHEET_NAME, COLUMNS, p);
-  if (p.sid) cache.put('sid:' + p.sid, '1', 21600); // помечаем только после успешной записи
+  let where;
+  try { where = appendSafe_(SHEET_NAME, COLUMNS, p); }
+  catch (err) { if (p.sid) release_('sid:' + p.sid); throw err; }
   const res = sendChannelNow_(p);
   if (where.sheet === SHEET_NAME && where.row) {
     try { where.ref.getRange(where.row, BOT_COL).setValue(res); } catch (err) { console.error('bot col', err); }
@@ -161,7 +166,7 @@ function appendSafe_(name, cols, p) {
     sheet.appendRow(row);
     return { sheet: name, ref: sheet, row: locked ? sheet.getLastRow() : findRowBySid_(sheet, p.sid) };
   } catch (err) {
-    console.error('append ' + name, err);
+    console.error('append failed', name, err);
     alertOwner_('Анкета сохранена в запасной лист', String(err) + '\n' + JSON.stringify(p));
     const reserve = getSheet_(RESERVE_SHEET, [['Дата', '_date'], ['Лист', '_s'], ['Данные', '_j']]);
     reserve.appendRow([new Date(), name, asText_(JSON.stringify(p))]);
@@ -181,7 +186,7 @@ function sendChannelNow_(p) {
   if (!pairVisited_(p.tg_id, p.cuid)) return 'не найден визит этой пары — придёт при проверке';
   const sentKey = 'sent:' + p.cuid;
   const props = PropertiesService.getScriptProperties();
-  if (props.getProperty(sentKey)) return 'уже отправлялось раньше';
+  if (!claimProp_(sentKey)) return 'уже отправлялось раньше'; // под замком: двойной отправки не будет
   if (!rate_('botruns', LIMITS.botRunsPer10m, 600)) {
     alertOwner_('Сработал предохранитель BotHelp', 'Больше ' + LIMITS.botRunsPer10m + ' запусков бота за 10 минут. Запуски приостановлены; проверьте лист «Заявки».');
     return 'предохранитель — придёт при проверке';
@@ -193,9 +198,10 @@ function sendChannelNow_(p) {
     const stop = bhFetch_(base + '?botReferral=' + encodeURIComponent(flow.bot), { method: 'delete' });
     const run = bhFetch_(base, { method: 'post', contentType: 'application/json',
       payload: JSON.stringify({ botReferral: flow.bot, stepReferral: flow.step }) });
-    if (!run) return 'нет ключей API — придёт при проверке';
+    if (!run) { props.deleteProperty(sentKey); return 'нет ключей API — придёт при проверке'; }
     const ok = c => c >= 200 && c < 300;
     if (!ok(run.getResponseCode())) {
+      props.deleteProperty(sentKey);
       console.error('BotHelp run', run.getResponseCode(), run.getContentText().slice(0, 300));
       return 'ошибка ' + run.getResponseCode() + ': ' + run.getContentText().slice(0, 100);
     }
@@ -203,6 +209,7 @@ function sendChannelNow_(p) {
     if (!ok(stop.getResponseCode())) return 'отправлено сразу, но дожим не остановлен (' + stop.getResponseCode() + ')' + note;
     return 'отправлено сразу' + note;
   } catch (err) {
+    props.deleteProperty(sentKey);
     console.error('sendChannelNow_', err);
     return 'ошибка: ' + String(err).slice(0, 120);
   }
@@ -283,6 +290,31 @@ function rate_(name, max, seconds) {
   const n = Number(cache.get(key) || 0) + 1;
   cache.put(key, String(n), seconds + 5);
   return n <= max;
+}
+
+/** Атомарно «занять» ключ в кэше (под замком). false — уже занят. */
+function claim_(key, seconds) {
+  const lock = LockService.getScriptLock();
+  const locked = lock.tryLock(5000);
+  try {
+    const cache = CacheService.getScriptCache();
+    if (cache.get(key)) return false;
+    cache.put(key, '1', seconds);
+    return true;
+  } finally { if (locked) lock.releaseLock(); }
+}
+function release_(key) { CacheService.getScriptCache().remove(key); }
+
+/** То же для постоянного хранилища (Свойства скрипта). */
+function claimProp_(key) {
+  const lock = LockService.getScriptLock();
+  const locked = lock.tryLock(5000);
+  try {
+    const props = PropertiesService.getScriptProperties();
+    if (props.getProperty(key)) return false;
+    props.setProperty(key, 'pending:' + Date.now());
+    return true;
+  } finally { if (locked) lock.releaseLock(); }
 }
 
 /** true — первый раз за указанное время, false — уже было. */

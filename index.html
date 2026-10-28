@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-qBbTuhnhe12R160JSB4ZfQ/zCpU4oKQecjITfyQfKW8='; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-iT6SgybqoGUTMtdz6IvUnwdHbO6Sc9cXYkuACgmHBFo='; require-trusted-types-for 'script'; upgrade-insecure-requests; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>[hidden]{display:none!important}html{color-scheme:dark}body{margin:0}img{max-width:100%}</style>
@@ -461,7 +461,10 @@ try {
     // Ссылка из общего дожима идёт без video: оставляем материал, по которому человек пришёл впервые
     if (!fromUrl.video && saved && saved.tg_id === fromUrl.tg_id && saved.video) fromUrl.video = saved.video;
     localStorage.setItem('p2p_ref', JSON.stringify(Object.assign({ ts: Date.now() }, fromUrl)));
-  } else if (saved) ref = saved;
+  } else if (saved) {
+    ref = { tg_id: saved.tg_id, cuid: /^[a-z0-9]{1,16}\.\d{1,10}$/i.test(saved.cuid || '') ? saved.cuid : '',
+            video: /^[a-z0-9_-]{1,32}$/i.test(saved.video || '') ? saved.video : '', utm: String(saved.utm || '').slice(0, 300) };
+  }
 } catch(e) { console.warn('localStorage недоступен', e); }
 // Убираем ID из адресной строки: они не останутся в истории и не уйдут дальше при пересылке ссылки
 try {
