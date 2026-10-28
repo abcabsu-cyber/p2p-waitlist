@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-iT6SgybqoGUTMtdz6IvUnwdHbO6Sc9cXYkuACgmHBFo='; require-trusted-types-for 'script'; upgrade-insecure-requests; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-CDtayW0/eT3MqCqwVLLRnuY1rFcxwW2cjmdLmCCH5MU='; require-trusted-types-for 'script'; upgrade-insecure-requests; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>[hidden]{display:none!important}html{color-scheme:dark}body{margin:0}img{max-width:100%}</style>
@@ -354,7 +354,7 @@ h1 em{font-style:normal;background:linear-gradient(100deg,#fff6e1,var(--champagn
     <button class="close" type="button" data-close aria-label="Закрыть">&times;</button>
     <form id="form" novalidate style="display:grid;gap:22px">
       <h2 id="dt">Оставить анкету</h2>
-      <input type="hidden" name="tg_id"><input type="hidden" name="video"><input type="hidden" name="utm"><input type="hidden" name="cuid"><input type="hidden" name="sid">
+      <input type="hidden" name="tg_id"><input type="hidden" name="video"><input type="hidden" name="utm"><input type="hidden" name="cuid"><input type="hidden" name="form_id">
       <div aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden"><label>Сайт <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
 
       <div class="field"><label for="nac">Имя, возраст, город <i>*</i></label>
@@ -478,7 +478,7 @@ form.video.value = ref.video || '';
 form.utm.value = ref.utm || '';
 form.cuid.value = ref.cuid || '';
 const SID = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12));
-form.sid.value = SID; // номер анкеты: повторная отправка не создаст вторую строку
+form.form_id.value = SID; // номер анкеты: повторная отправка не создаст вторую строку
 let openedAt = 0;
 if (!SCRIPT_URL) document.getElementById('demo').hidden = false;
 
@@ -530,7 +530,7 @@ form.addEventListener('submit', async e => {
     fd.set('whatsapp', fd.get('whatsapp_cc') + ' ' + fd.get('whatsapp'));
     const c = String(fd.get('call') || '').trim(); fd.set('call', /\d/.test(c) ? fd.get('call_cc') + ' ' + c : c);
     fd.delete('whatsapp_cc'); fd.delete('call_cc');
-    fd.set('sid', SID); fd.set('t_ms', String(openedAt ? Date.now() - openedAt : 0));
+    fd.set('form_id', SID); fd.set('t_ms', String(openedAt ? Date.now() - openedAt : 0));
     const result = await sendForm(new URLSearchParams(fd));
     if (result !== 'ok') {
       btn.disabled = false; btn.textContent = 'Отправить данные';
