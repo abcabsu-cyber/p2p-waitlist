@@ -20,6 +20,19 @@ const VISITS_SHEET = 'Визиты';
 // Необязательно: адрес, куда скрипт сообщит о новой анкете (POST, JSON).
 const BOT_WEBHOOK_URL = '';
 
+// ---------- Мгновенная ссылка на канал в боте (API BotHelp) ----------
+// Сразу после анкеты скрипт останавливает цепочку дожима и запускает бота
+// на шаге «Анкета заполнена → канал». Ключи API хранятся в «Свойствах скрипта»:
+//   BOTHELP_CLIENT_ID, BOTHELP_CLIENT_SECRET  (Настройки проекта → Свойства скрипта).
+// Для каждого материала: слово из конца ссылки (video) → ref бота и ref шага «канал».
+// Ref бота: в BotHelp кнопка 🔗 «Ссылки» → «Идентификатор для интеграций».
+// Ref шага: открыть шаг → строка «Ref шага» под названием.
+const BOTHELP_FLOWS = {
+  chalenge:  { bot: 'c1793043434056', step: '1793122782287' },
+  challenge: { bot: 'c1793043434056', step: '1793122782287' },
+};
+const BOTHELP_DEFAULT_FLOW = BOTHELP_FLOWS.chalenge; // если слово не найдено в списке
+
 // Порядок колонок в «Заявках»: [заголовок, имя поля в форме]. Новые колонки — только в конец.
 const COLUMNS = [
   ['Дата',                   '_date'],
@@ -36,7 +49,9 @@ const COLUMNS = [
   ['Идеальный результат',    'goal'],
   ['Готовность (0–10)',      'readiness'],
   ['cuid (BotHelp)',         'cuid'],
+  ['Канал в боте',           '_bot'],
 ];
+const BOT_COL = 15; // колонка O — результат отправки ссылки на канал в бот
 const VISIT_COLUMNS = [
   ['Дата',          '_date'],
   ['tg_id',         'tg_id'],
@@ -47,19 +62,81 @@ const VISIT_COLUMNS = [
 const TG_ID_COL = 2; // колонка B в обоих листах
 
 function doPost(e) {
-  const p = (e && e.parameter) || {};
+  // Запуск из редактора (кнопка «Выполнить») приходит без данных — ничего не пишем.
+  if (!e || !e.parameter || !Object.keys(e.parameter).length) {
+    return json_({ ok: false, error: 'empty request' });
+  }
+  const p = e.parameter;
   const isVisit = p.event === 'visit';
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
+  let sheet, row;
   try {
     const cols = isVisit ? VISIT_COLUMNS : COLUMNS;
-    const sheet = getSheet_(isVisit ? VISITS_SHEET : SHEET_NAME, cols);
-    sheet.appendRow(cols.map(([, key]) => key === '_date' ? new Date() : asText_(p[key])));
+    sheet = getSheet_(isVisit ? VISITS_SHEET : SHEET_NAME, cols);
+    sheet.appendRow(cols.map(([, key]) => key === '_date' ? new Date() : key === '_bot' ? '' : asText_(p[key])));
+    row = sheet.getLastRow();
   } finally {
     lock.releaseLock();
   }
-  if (!isVisit) notifyBot_(p);
+  if (!isVisit) {
+    const res = sendChannelNow_(p);
+    try { sheet.getRange(row, BOT_COL).setValue(res); } catch (err) { console.error(err); }
+    notifyBot_(p);
+  }
   return json_({ ok: true });
+}
+
+/** Останавливает дожим и сразу отправляет в бот шаг со ссылкой на канал. Возвращает итог для таблицы. */
+function sendChannelNow_(p) {
+  const cuid = String(p.cuid || '').trim();
+  if (!cuid) return 'нет cuid — придёт при проверке';
+  const flow = BOTHELP_FLOWS[String(p.video || '').trim().toLowerCase()] || BOTHELP_DEFAULT_FLOW;
+  try {
+    const token = bothelpToken_();
+    if (!token) return 'нет ключей API — придёт при проверке';
+    const base = 'https://api.bothelp.io/v1/subscribers/cuid/' + encodeURIComponent(cuid) + '/bot';
+    const auth = { Authorization: 'Bearer ' + token };
+    const stop = UrlFetchApp.fetch(base + '?botReferral=' + encodeURIComponent(flow.bot),
+      { method: 'delete', headers: auth, muteHttpExceptions: true });
+    const run = UrlFetchApp.fetch(base, {
+      method: 'post', headers: auth, contentType: 'application/json', muteHttpExceptions: true,
+      payload: JSON.stringify({ botReferral: flow.bot, stepReferral: flow.step }),
+    });
+    const code = run.getResponseCode();
+    if (code === 200) return 'отправлено сразу';
+    console.error('BotHelp run', code, run.getContentText(), 'stop', stop.getResponseCode(), stop.getContentText());
+    return 'ошибка ' + code + ': ' + run.getContentText().slice(0, 120);
+  } catch (err) {
+    console.error('sendChannelNow_', err);
+    return 'ошибка: ' + String(err).slice(0, 120);
+  }
+}
+
+function bothelpToken_() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get('bothelp_token');
+  if (cached) return cached;
+  const props = PropertiesService.getScriptProperties();
+  const id = props.getProperty('BOTHELP_CLIENT_ID');
+  const secret = props.getProperty('BOTHELP_CLIENT_SECRET');
+  if (!id || !secret) return '';
+  const res = UrlFetchApp.fetch('https://oauth.bothelp.io/oauth2/token', {
+    method: 'post', muteHttpExceptions: true,
+    payload: { grant_type: 'client_credentials', client_id: id, client_secret: secret },
+  });
+  if (res.getResponseCode() !== 200) throw new Error('OAuth ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 200));
+  const data = JSON.parse(res.getContentText());
+  cache.put('bothelp_token', data.access_token, Math.max(60, Math.min(3000, (data.expires_in || 3600) - 300)));
+  return data.access_token;
+}
+
+/** Запустите вручную после ввода ключей: проверит, что ключи API работают. Ничего никому не отправляет. */
+function checkBotHelp() {
+  const token = bothelpToken_();
+  if (!token) { console.log('❌ Ключи не найдены. Добавьте BOTHELP_CLIENT_ID и BOTHELP_CLIENT_SECRET в Свойства скрипта.'); return; }
+  const res = UrlFetchApp.fetch('https://api.bothelp.io/v1/bots', { headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true });
+  console.log(res.getResponseCode() === 200 ? '✅ Ключи работают, BotHelp отвечает.' : '❌ BotHelp ответил ' + res.getResponseCode() + ': ' + res.getContentText().slice(0, 300));
 }
 
 function doGet(e) {
