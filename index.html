@@ -2,6 +2,8 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-qBbTuhnhe12R160JSB4ZfQ/zCpU4oKQecjITfyQfKW8='; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>[hidden]{display:none!important}html{color-scheme:dark}body{margin:0}img{max-width:100%}</style>
 <title>Предзапись на курс по P2P — Ибрахим Юсупов</title>
@@ -352,14 +354,15 @@ h1 em{font-style:normal;background:linear-gradient(100deg,#fff6e1,var(--champagn
     <button class="close" type="button" data-close aria-label="Закрыть">&times;</button>
     <form id="form" novalidate style="display:grid;gap:22px">
       <h2 id="dt">Оставить анкету</h2>
-      <input type="hidden" name="tg_id"><input type="hidden" name="video"><input type="hidden" name="utm"><input type="hidden" name="cuid">
+      <input type="hidden" name="tg_id"><input type="hidden" name="video"><input type="hidden" name="utm"><input type="hidden" name="cuid"><input type="hidden" name="sid">
+      <div aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden"><label>Сайт <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
 
       <div class="field"><label for="nac">Имя, возраст, город <i>*</i></label>
-        <input class="input" id="nac" name="name_age_city" type="text" placeholder="Пример: Ахмад, 25, Махачкала" autocomplete="off"><div class="err">Заполните это поле</div></div>
+        <input class="input" id="nac" name="name_age_city" maxlength="200" type="text" placeholder="Пример: Ахмад, 25, Махачкала" autocomplete="off"><div class="err">Заполните это поле</div></div>
 
       <div class="field"><label for="dep">Какой депозит для работы? На какую сумму будешь покупать дешевле и продавать дороже? <i>*</i></label>
         <p class="hint">Чем больше, тем больше будешь зарабатывать.</p>
-        <input class="input" id="dep" name="deposit" type="text" placeholder="Пример: от 20.000 руб."><div class="err">Укажите сумму</div></div>
+        <input class="input" id="dep" name="deposit" maxlength="100" type="text" placeholder="Пример: от 20.000 руб."><div class="err">Укажите сумму</div></div>
 
       <div class="field"><span class="label">Какой опыт? <i>*</i></span>
         <div class="radio-group">
@@ -369,22 +372,22 @@ h1 em{font-style:normal;background:linear-gradient(100deg,#fff6e1,var(--champagn
         </div><div class="err">Выберите вариант</div></div>
 
       <div class="field"><label for="ig">Ник инстаграма</label>
-        <input class="input" id="ig" name="instagram" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" lang="en" inputmode="email" placeholder="Пример: ahmad_p2p"><div class="latin-warn">Только английские буквы, цифры и _</div></div>
+        <input class="input" id="ig" name="instagram" maxlength="40" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" lang="en" inputmode="email" placeholder="Пример: ahmad_p2p"><div class="latin-warn">Только английские буквы, цифры и _</div></div>
 
       <div class="field"><label for="tg">Ник Telegram <i>*</i></label>
-        <input class="input" id="tg" name="telegram" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" lang="en" inputmode="email" placeholder="Пример: @ahmad_p2p"><div class="latin-warn">Только английские буквы, цифры и _</div><div class="err">Укажите ник в Telegram</div></div>
+        <input class="input" id="tg" name="telegram" maxlength="40" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" lang="en" inputmode="email" placeholder="Пример: @ahmad_p2p"><div class="latin-warn">Только английские буквы, цифры и _</div><div class="err">Укажите ник в Telegram</div></div>
 
       <div class="field"><label for="wa">Номер WhatsApp <i>*</i></label>
         <p class="hint">Пример: 89281488228</p>
-        <div class="phone"><select class="select cc" name="whatsapp_cc" aria-label="Код страны"><option value="+7">RU +7</option><option value="+7">KZ +7</option><option value="+375">BY +375</option><option value="+380">UA +380</option><option value="+998">UZ +998</option><option value="+996">KG +996</option><option value="+992">TJ +992</option><option value="+994">AZ +994</option><option value="+374">AM +374</option><option value="+995">GE +995</option><option value="+90">TR +90</option><option value="+971">AE +971</option></select><input class="input" id="wa" name="whatsapp" type="tel" inputmode="tel" placeholder="(000) 000-00-00"></div><div class="err">Укажите номер WhatsApp</div></div>
+        <div class="phone"><select class="select cc" name="whatsapp_cc" aria-label="Код страны"><option value="+7">RU +7</option><option value="+7">KZ +7</option><option value="+375">BY +375</option><option value="+380">UA +380</option><option value="+998">UZ +998</option><option value="+996">KG +996</option><option value="+992">TJ +992</option><option value="+994">AZ +994</option><option value="+374">AM +374</option><option value="+995">GE +995</option><option value="+90">TR +90</option><option value="+971">AE +971</option></select><input class="input" id="wa" name="whatsapp" maxlength="25" type="tel" inputmode="tel" placeholder="(000) 000-00-00"></div><div class="err">Укажите номер WhatsApp</div></div>
 
       <div class="field"><label for="call">Номер для звонков</label>
         <p class="hint">Если не хочешь, чтоб звонили, напиши «Нету». Но если укажешь, то получишь всю информацию первым</p>
-        <div class="phone"><select class="select cc" name="call_cc" aria-label="Код страны"><option value="+7">RU +7</option><option value="+7">KZ +7</option><option value="+375">BY +375</option><option value="+380">UA +380</option><option value="+998">UZ +998</option><option value="+996">KG +996</option><option value="+992">TJ +992</option><option value="+994">AZ +994</option><option value="+374">AM +374</option><option value="+995">GE +995</option><option value="+90">TR +90</option><option value="+971">AE +971</option></select><input class="input" id="call" name="call" type="text" placeholder="(000) 000-00-00"></div></div>
+        <div class="phone"><select class="select cc" name="call_cc" aria-label="Код страны"><option value="+7">RU +7</option><option value="+7">KZ +7</option><option value="+375">BY +375</option><option value="+380">UA +380</option><option value="+998">UZ +998</option><option value="+996">KG +996</option><option value="+992">TJ +992</option><option value="+994">AZ +994</option><option value="+374">AM +374</option><option value="+995">GE +995</option><option value="+90">TR +90</option><option value="+971">AE +971</option></select><input class="input" id="call" name="call" maxlength="25" type="text" placeholder="(000) 000-00-00"></div></div>
 
       <div class="field"><label for="goal">Какой ждешь идеальный результат после прохождения курса?</label>
         <p class="hint">Пример: хочу дополнительно зарабатывать на смартфоне и быть сам себе хозяин</p>
-        <textarea class="textarea" id="goal" name="goal"></textarea></div>
+        <textarea class="textarea" id="goal" name="goal" maxlength="1000"></textarea></div>
 
       <div class="field"><span class="label">По 10-балльной шкале, насколько ты готов к покупке курса прямо сейчас?</span>
         <div class="slider"><output class="bubble" id="rdo" for="rd">5</output>
@@ -429,6 +432,7 @@ h1 em{font-style:normal;background:linear-gradient(100deg,#fff6e1,var(--champagn
 </div>
 
 <script>
+if (window.top !== window.self) { document.documentElement.style.display = 'none'; } // запрет показа внутри чужих сайтов
 // Адрес веб-приложения Google Apps Script (см. apps-script/README.md). Пусто = демо-режим.
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPe9IAuuMJ0DmAUBz7d63n7A5KpqblkxUNqwXMj74lmVMEkLqWlxiKyKXUY0oBHV-yuw/exec";
 
@@ -444,28 +448,44 @@ const fromUrl = {
   video: param('video'),
   utm: ['utm_source','utm_medium','utm_campaign','utm_content'].map(k => q.get(k) ? k+'='+q.get(k) : '').filter(Boolean).join('&')
 };
+// Проверка формата: в поля попадает только то, что похоже на настоящие значения
+if (!/^\d{5,15}$/.test(fromUrl.tg_id)) fromUrl.tg_id = '';
+if (!/^[a-z0-9]{1,16}\.\d{1,10}$/i.test(fromUrl.cuid)) fromUrl.cuid = '';
+if (!/^[a-z0-9_-]{1,32}$/i.test(fromUrl.video)) fromUrl.video = '';
+const REF_TTL = 7 * 24 * 3600 * 1000; // сохранённая связка живёт 7 дней
 let ref = fromUrl;
 try {
-  const saved = JSON.parse(localStorage.getItem('p2p_ref') || 'null');
+  let saved = JSON.parse(localStorage.getItem('p2p_ref') || 'null');
+  if (saved && (!saved.ts || Date.now() - saved.ts > REF_TTL || !/^\d{5,15}$/.test(saved.tg_id || ''))) { saved = null; localStorage.removeItem('p2p_ref'); }
   if (fromUrl.tg_id) {
     // Ссылка из общего дожима идёт без video: оставляем материал, по которому человек пришёл впервые
     if (!fromUrl.video && saved && saved.tg_id === fromUrl.tg_id && saved.video) fromUrl.video = saved.video;
-    localStorage.setItem('p2p_ref', JSON.stringify(fromUrl));
+    localStorage.setItem('p2p_ref', JSON.stringify(Object.assign({ ts: Date.now() }, fromUrl)));
   } else if (saved) ref = saved;
+} catch(e) { console.warn('localStorage недоступен', e); }
+// Убираем ID из адресной строки: они не останутся в истории и не уйдут дальше при пересылке ссылки
+try {
+  if (fromUrl.tg_id || q.has('cuid')) {
+    const keep = new URLSearchParams(); if (q.get('preview')) keep.set('preview', q.get('preview'));
+    history.replaceState(null, '', location.pathname + (keep.toString() ? '?' + keep : '') + location.hash);
+  }
 } catch(_) {}
 form.tg_id.value = ref.tg_id || '';
 form.video.value = ref.video || '';
 form.utm.value = ref.utm || '';
 form.cuid.value = ref.cuid || '';
+const SID = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12));
+form.sid.value = SID; // номер анкеты: повторная отправка не создаст вторую строку
+let openedAt = 0;
 if (!SCRIPT_URL) document.getElementById('demo').hidden = false;
 
 // Отмечаем переход из бота на сайт: бот увидит статус «visited» (открыл, но не заполнил)
 if (SCRIPT_URL && fromUrl.tg_id && q.get('preview') !== 'thanks') {
   const v = new URLSearchParams({event:'visit', tg_id:fromUrl.tg_id, cuid:fromUrl.cuid, video:fromUrl.video, utm:fromUrl.utm});
-  fetch(SCRIPT_URL, {method:'POST', mode:'no-cors', body:v, keepalive:true}).catch(() => {});
+  fetch(SCRIPT_URL, {method:'POST', mode:'no-cors', body:v, keepalive:true}).catch(e => console.warn('visit не отправлен', e));
 }
 
-function openM(){ ov.scrollTop = 0; ov.classList.add('open'); ov.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden'; }
+function openM(){ if (!openedAt) openedAt = Date.now(); ov.scrollTop = 0; ov.classList.add('open'); ov.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden'; }
 function closeM(){ ov.classList.remove('open'); ov.setAttribute('aria-hidden','true'); document.body.style.overflow=''; }
 document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', openM));
 document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeM));
@@ -507,19 +527,37 @@ form.addEventListener('submit', async e => {
     fd.set('whatsapp', fd.get('whatsapp_cc') + ' ' + fd.get('whatsapp'));
     const c = String(fd.get('call') || '').trim(); fd.set('call', /\d/.test(c) ? fd.get('call_cc') + ' ' + c : c);
     fd.delete('whatsapp_cc'); fd.delete('call_cc');
-    // no-cors: ответ скрипта не читается, но обрыв сети ловим — анкета не должна теряться молча.
-    const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 20000);
-    try {
-      await fetch(SCRIPT_URL, {method:'POST', mode:'no-cors', body:new URLSearchParams(fd), signal:ctrl.signal});
-    } catch(_) {
-      clearTimeout(timer);
-      btn.disabled = false; btn.textContent = 'Отправить данные'; sendErr.hidden = false;
+    fd.set('sid', SID); fd.set('t_ms', String(openedAt ? Date.now() - openedAt : 0));
+    const result = await sendForm(new URLSearchParams(fd));
+    if (result !== 'ok') {
+      btn.disabled = false; btn.textContent = 'Отправить данные';
+      sendErr.textContent = result === 'rate' ? 'Слишком много попыток. Подождите минуту и нажмите ещё раз.'
+        : result === 'timeout' ? 'Сервер долго отвечает. Возможно, анкета уже отправлена — нажмите ещё раз, дубля не будет.'
+        : 'Не удалось отправить. Проверьте интернет и нажмите ещё раз.';
+      sendErr.hidden = false;
       return;
     }
-    clearTimeout(timer);
+    try { localStorage.removeItem('p2p_ref'); } catch(_) {}
   }
   showThanks();
 });
+
+// Отправка анкеты: «принято» только если скрипт ответил {"ok":true}
+async function sendForm(body) {
+  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 45000);
+  try {
+    const r = await fetch(SCRIPT_URL, {method:'POST', body, signal:ctrl.signal, redirect:'follow'});
+    const j = await r.json().catch(() => null);
+    if (r.ok && j && j.ok === true) return 'ok';
+    console.error('Анкета не сохранена', r.status, j);
+    return j && j.error === 'rate' ? 'rate' : 'error';
+  } catch (e) {
+    if (e.name === 'AbortError') return 'timeout';
+    // Запасной путь, если браузер не дал прочитать ответ: отправка «вслепую»
+    try { await fetch(SCRIPT_URL, {method:'POST', mode:'no-cors', body}); console.warn('Отправлено без подтверждения', e); return 'ok'; }
+    catch (e2) { console.error('Сеть недоступна', e2); return 'error'; }
+  } finally { clearTimeout(timer); }
+}
 
 // ---------- экран после анкеты и переход в канал ----------
 const TG_CHANNEL = 'ibnyusupow_p2p';
