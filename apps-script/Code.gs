@@ -17,6 +17,8 @@
 const SHEET_NAME = 'Заявки';
 const VISITS_SHEET = 'Визиты';
 const RESERVE_SHEET = 'Запас'; // сюда пишется анкета, если основной лист недоступен
+// Рабочий адрес развёртывания (тот же, что SCRIPT_URL на сайте). Меняйте, только если создали новое развёртывание.
+const PUBLIC_EXEC_URL = 'https://script.google.com/macros/s/AKfycbzPe9IAuuMJ0DmAUBz7d63n7A5KpqblkxUNqwXMj74lmVMEkLqWlxiKyKXUY0oBHV-yuw/exec';
 
 // Необязательно: адрес, куда скрипт сообщит о новой анкете (POST, JSON).
 const BOT_WEBHOOK_URL = '';
@@ -389,7 +391,6 @@ function makeStatusKey() {
     key = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
     props.setProperty('STATUS_KEY', key);
   }
-  const url = ScriptApp.getService().getUrl();
   console.log('Адрес для «Внешнего запроса» в BotHelp (во всех шагах «Проверка анкеты»):\n' +
-    (url || '<адрес …/exec>') + '?tg_id={%user_id%}&key=' + key);
+    PUBLIC_EXEC_URL + '?tg_id={%user_id%}&key=' + key);
 }
