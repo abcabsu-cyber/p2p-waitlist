@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-CDtayW0/eT3MqCqwVLLRnuY1rFcxwW2cjmdLmCCH5MU='; require-trusted-types-for 'script'; upgrade-insecure-requests; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-9/8f5EPThGsX+zz8ayA8bSGDYjX94O1nvtpQB8lQjv4='; require-trusted-types-for 'script'; upgrade-insecure-requests; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src https://script.google.com https://script.googleusercontent.com https://yusupov-funnel.abc-absu.workers.dev; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>[hidden]{display:none!important}html{color-scheme:dark}body{margin:0}img{max-width:100%}</style>
@@ -354,7 +354,7 @@ h1 em{font-style:normal;background:linear-gradient(100deg,#fff6e1,var(--champagn
     <button class="close" type="button" data-close aria-label="Закрыть">&times;</button>
     <form id="form" novalidate style="display:grid;gap:22px">
       <h2 id="dt">Оставить анкету</h2>
-      <input type="hidden" name="tg_id"><input type="hidden" name="video"><input type="hidden" name="utm"><input type="hidden" name="cuid"><input type="hidden" name="form_id">
+      <input type="hidden" name="tg_id"><input type="hidden" name="video"><input type="hidden" name="utm"><input type="hidden" name="cuid"><input type="hidden" name="sig"><input type="hidden" name="form_id">
       <div aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden"><label>Сайт <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
 
       <div class="field"><label for="nac">Имя, возраст, город <i>*</i></label>
@@ -436,6 +436,8 @@ if (window.top !== window.self) { document.documentElement.style.display = 'none
 // Адрес веб-приложения Google Apps Script (см. apps-script/README.md). Пусто = демо-режим.
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPe9IAuuMJ0DmAUBz7d63n7A5KpqblkxUNqwXMj74lmVMEkLqWlxiKyKXUY0oBHV-yuw/exec";
 
+// Два бэкенда работают параллельно: ссылка с подписью sig (новый бот) → Cloudflare Worker, ссылка с cuid (BotHelp) → Google Script.
+const API_BASE = "https://yusupov-funnel.abc-absu.workers.dev";
 const ov = document.getElementById('ov'), form = document.getElementById('form');
 
 // Метки из ссылки бота: ?tg_id={%user_id%}&cuid={%cuid%}&video=...&utm_*. Запоминаем их, чтобы связка
@@ -445,12 +447,14 @@ const param = k => { const v = (q.get(k) || '').trim(); return v.includes('{%') 
 const fromUrl = {
   tg_id: param('tg_id'),
   cuid: param('cuid'),
+  sig: param('sig'),
   video: param('video'),
   utm: ['utm_source','utm_medium','utm_campaign','utm_content'].map(k => q.get(k) ? k+'='+q.get(k) : '').filter(Boolean).join('&')
 };
 // Проверка формата: в поля попадает только то, что похоже на настоящие значения
 if (!/^\d{5,15}$/.test(fromUrl.tg_id)) fromUrl.tg_id = '';
 if (!/^[a-z0-9]{1,16}\.\d{1,10}$/i.test(fromUrl.cuid)) fromUrl.cuid = '';
+if (!/^[A-Za-z0-9_-]{16,32}$/.test(fromUrl.sig)) fromUrl.sig = '';
 if (!/^[a-z0-9_-]{1,32}$/i.test(fromUrl.video)) fromUrl.video = '';
 const REF_TTL = 7 * 24 * 3600 * 1000; // сохранённая связка живёт 7 дней
 let ref = fromUrl;
@@ -462,13 +466,13 @@ try {
     if (!fromUrl.video && saved && saved.tg_id === fromUrl.tg_id && saved.video) fromUrl.video = saved.video;
     localStorage.setItem('p2p_ref', JSON.stringify(Object.assign({ ts: Date.now() }, fromUrl)));
   } else if (saved) {
-    ref = { tg_id: saved.tg_id, cuid: /^[a-z0-9]{1,16}\.\d{1,10}$/i.test(saved.cuid || '') ? saved.cuid : '',
+    ref = { tg_id: saved.tg_id, sig: /^[A-Za-z0-9_-]{16,32}$/.test(saved.sig || '') ? saved.sig : '', cuid: /^[a-z0-9]{1,16}\.\d{1,10}$/i.test(saved.cuid || '') ? saved.cuid : '',
             video: /^[a-z0-9_-]{1,32}$/i.test(saved.video || '') ? saved.video : '', utm: String(saved.utm || '').slice(0, 300) };
   }
 } catch(e) { console.warn('localStorage недоступен', e); }
 // Убираем ID из адресной строки: они не останутся в истории и не уйдут дальше при пересылке ссылки
 try {
-  if (fromUrl.tg_id || q.has('cuid')) {
+  if (fromUrl.tg_id || q.has('cuid') || q.has('sig')) {
     const keep = new URLSearchParams(); if (q.get('preview')) keep.set('preview', q.get('preview'));
     history.replaceState(null, '', location.pathname + (keep.toString() ? '?' + keep : '') + location.hash);
   }
@@ -477,13 +481,18 @@ form.tg_id.value = ref.tg_id || '';
 form.video.value = ref.video || '';
 form.utm.value = ref.utm || '';
 form.cuid.value = ref.cuid || '';
+form.sig.value = ref.sig || '';
+const USE_CF = !!(API_BASE && ref.sig); // есть подпись от нового бота → шлём в Cloudflare
 const SID = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12));
 form.form_id.value = SID; // номер анкеты: повторная отправка не создаст вторую строку
 let openedAt = 0;
 if (!SCRIPT_URL) document.getElementById('demo').hidden = false;
 
 // Отмечаем переход из бота на сайт: бот увидит статус «visited» (открыл, но не заполнил)
-if (SCRIPT_URL && fromUrl.tg_id && q.get('preview') !== 'thanks') {
+if (USE_CF && fromUrl.tg_id && q.get('preview') !== 'thanks') {
+  const v = new URLSearchParams({tg_id:ref.tg_id, sig:ref.sig, video:ref.video, utm:ref.utm});
+  fetch(API_BASE + '/visit', {method:'POST', body:v, keepalive:true}).catch(e => console.warn('visit не отправлен', e));
+} else if (SCRIPT_URL && fromUrl.tg_id && q.get('preview') !== 'thanks') {
   const v = new URLSearchParams({event:'visit', tg_id:fromUrl.tg_id, cuid:fromUrl.cuid, video:fromUrl.video, utm:fromUrl.utm});
   fetch(SCRIPT_URL, {method:'POST', mode:'no-cors', body:v, keepalive:true}).catch(e => console.warn('visit не отправлен', e));
 }
@@ -549,14 +558,15 @@ form.addEventListener('submit', async e => {
 async function sendForm(body) {
   const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 45000);
   try {
-    const r = await fetch(SCRIPT_URL, {method:'POST', body, signal:ctrl.signal, redirect:'follow'});
+    const r = await fetch(USE_CF ? API_BASE + '/form' : SCRIPT_URL, {method:'POST', body, signal:ctrl.signal, redirect:'follow'});
     const j = await r.json().catch(() => null);
     if (r.ok && j && j.ok === true) return 'ok';
     console.error('Анкета не сохранена', r.status, j);
     return j && j.error === 'rate' ? 'rate' : 'error';
   } catch (e) {
     if (e.name === 'AbortError') return 'timeout';
-    // Запасной путь, если браузер не дал прочитать ответ: отправка «вслепую»
+    if (USE_CF) { console.error('Сеть недоступна', e); return 'error'; }
+    // Запасной путь (только для старого Google-бэкенда): отправка «вслепую»
     try { await fetch(SCRIPT_URL, {method:'POST', mode:'no-cors', body}); console.warn('Отправлено без подтверждения', e); return 'ok'; }
     catch (e2) { console.error('Сеть недоступна', e2); return 'error'; }
   } finally { clearTimeout(timer); }
